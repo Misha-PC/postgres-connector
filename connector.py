@@ -2,57 +2,9 @@ import psycopg2
 from datetime import datetime
 
 
-"""
-
-CREATE TABLE public.sources
-(
-	id serial,
-    name character(35),
-    url character(250),
-    PRIMARY KEY (id)
-);
-    
-ALTER TABLE public.sources
-	OWNER to postgres;
-
-CREATE TABLE users (
-	id Serial,
-	join_date date,
-    tg_id varchar(10),
-	PRIMARY KEY (id)
-);
-
-
-
-
-CREATE TABLE public.subscription
-(
-    id serial,
-    source_id int,
-    user_id int,
-    date date,
-    PRIMARY KEY (id),
-	
-	CONSTRAINT fk_source FOREIGN KEY (source_id) 
-	REFERENCES public.sources (id)MATCH SIMPLE
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-    NOT VALID,
-	
-	CONSTRAINT fk_users FOREIGN KEY (user_id)
-    REFERENCES public.users (id) MATCH SIMPLE
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-    NOT VALID
-);
-
-ALTER TABLE public.subscription
-    OWNER to postgres;
-
-"""
-
 class Database(object):
     connection: None
+
     def __init__(self, **kwargs):
         self.connection = psycopg2.connect(**kwargs)
 
@@ -61,32 +13,9 @@ class Database(object):
 
 
 class Table(object):
+    table: None
     connection: None
     last_response: None
-
-    '''
-    host = 'localhost'
-    database = 'parsers'
-    user = 'postgres'
-    password = '111111'
-    
-    CREATE TABLE public.sources
-    (
-        id serial,
-        name character(35),
-        url character(250),
-        PRIMARY KEY (id)
-    );
-    
-    ALTER TABLE public.sources
-        OWNER to postgres;
-
-    CREATE TABLE users (
-       id Serial,
-       join_date date,
-       tg_id varchar(10)
-    );
-    '''
 
     def __init__(self, connection, user_id=None, user_tg_id=None):
         self.connection = connection
@@ -100,6 +29,14 @@ class Table(object):
 
         key, val = condition
         return f" WHERE {key} = '{val}'"
+
+    def create_condition(self, condition):
+        out = ''
+        for item in condition.items():
+            key, val = item
+            out += f"AND {key} = '{val}'"
+
+        return " WHERE " + out[4:]
 
     def do_query(self, query, get_result=False):
         cursor = self.connection.cursor()
@@ -126,7 +63,7 @@ class Table(object):
         self.do_query(query)
 
     def select(self, condition=None):
-        query = f"SELECT * FROM {self.table} {self.prepare_condition(condition)}"
+        query = f"SELECT * FROM {self.table} {self.create_condition(condition)}"
 
         self.do_query(query, get_result=True)
         return self.last_response
@@ -140,15 +77,14 @@ class Table(object):
 
         set_values = set_values[:-2]
 
-        query = f"UPDATE {self.table} SET {set_values} {self.prepare_condition(condition)}"
+        query = f"UPDATE {self.table} SET {set_values} {self.create_condition(condition)}"
 
         print(query)
 
         self.do_query(query)
 
     def delete(self, condition):
-        condition = self.prepare_condition(condition)
-        query = f"DELETE FROM {self.table} {condition}"
+        query = f"DELETE FROM {self.table} {self.prepare_condition( condition)}"
         self.do_query(query)
 
 
@@ -168,10 +104,14 @@ class Users(Table):
         self.get_user(tg_id=tg_id)
 
     def get_user(self, user_id=None, tg_id=None):
+        if not user_id and not tg_id:
+            return list()
+
+        condition = dict()
         if user_id:
-            condition = ('id', user_id)
-        elif tg_id:
-            condition = ('tg_id', tg_id)
+            condition.update({'id': user_id})
+        if tg_id:
+            condition.update({'tg_id': tg_id})
         try:
             user = self.select(condition)[0]
             self.user_id, self.join_date, self.tg_id = user
@@ -183,22 +123,8 @@ class Users(Table):
 class Sources(Table):
     source_id = None
     name = None
+    url = None
     table = 'public.sources'
-    url = ''
-
-    """
-    CREATE TABLE public.subscription
-    (
-        id serial,
-        source_id serial,
-        user_id serial,
-        date date,
-        PRIMARY KEY (id)
-    );
-    
-    ALTER TABLE public.subscription
-        OWNER to postgres;
-    """
 
     def create(self, name, url):
         data = {
@@ -210,12 +136,13 @@ class Sources(Table):
         self.get(url=url)
 
     def get(self, source_id=None, url=None, name=None):
+        condition = {}
         if source_id:
-            condition = ('id', source_id)
-        elif url:
-            condition = ('tg_id', url)
-        elif name:
-            condition = ('name', name)
+            condition.update({'id': source_id})
+        if url:
+            condition.update({'url': url})
+        if name:
+            condition.update({'name': name})
 
         try:
             source = self.select(condition)[0]
@@ -250,4 +177,4 @@ class Subscription(Table):
         }
 
         self.insert_into(data)
-        self.get(url=url)
+        # self.get(url=url)
