@@ -2,6 +2,55 @@ import psycopg2
 from datetime import datetime
 
 
+"""
+
+CREATE TABLE public.sources
+(
+	id serial,
+    name character(35),
+    url character(250),
+    PRIMARY KEY (id)
+);
+    
+ALTER TABLE public.sources
+	OWNER to postgres;
+
+CREATE TABLE users (
+	id Serial,
+	join_date date,
+    tg_id varchar(10),
+	PRIMARY KEY (id)
+);
+
+
+
+
+CREATE TABLE public.subscription
+(
+    id serial,
+    source_id int,
+    user_id int,
+    date date,
+    PRIMARY KEY (id),
+	
+	CONSTRAINT fk_source FOREIGN KEY (source_id) 
+	REFERENCES public.sources (id)MATCH SIMPLE
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+    NOT VALID,
+	
+	CONSTRAINT fk_users FOREIGN KEY (user_id)
+    REFERENCES public.users (id) MATCH SIMPLE
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+    NOT VALID
+);
+
+ALTER TABLE public.subscription
+    OWNER to postgres;
+
+"""
+
 class Database(object):
     connection: None
     def __init__(self, **kwargs):
@@ -11,30 +60,33 @@ class Database(object):
         return self.connection
 
 
-class Users(object):
+class Table(object):
     connection: None
     last_response: None
-    user_id: None
-    tg_id: None
-    join_date: None
-
-
 
     '''
     host = 'localhost'
     database = 'parsers'
     user = 'postgres'
     password = '111111'
-    '''
-    '''
+    
+    CREATE TABLE public.sources
+    (
+        id serial,
+        name character(35),
+        url character(250),
+        PRIMARY KEY (id)
+    );
+    
+    ALTER TABLE public.sources
+        OWNER to postgres;
+
     CREATE TABLE users (
        id Serial,
        join_date date,
        tg_id varchar(10)
     );
     '''
-
-    table = 'public.users'
 
     def __init__(self, connection, user_id=None, user_tg_id=None):
         self.connection = connection
@@ -74,14 +126,9 @@ class Users(object):
         self.do_query(query)
 
     def select(self, condition=None):
-        query = f"SELECT * FROM {self.table}"
+        query = f"SELECT * FROM {self.table} {self.prepare_condition(condition)}"
 
-        if condition:
-            key, val = condition
-            condition = f" WHERE {key} = '{val}'"
-            query += condition
-
-        self.do_query(query, get_resurt=True)
+        self.do_query(query, get_result=True)
         return self.last_response
 
     def update(self, condition, data):
@@ -92,9 +139,8 @@ class Users(object):
             set_values += f"{key} = '{val}', "
 
         set_values = set_values[:-2]
-        condition = self.prepare_condition(condition)
 
-        query = f"UPDATE {self.table} SET {set_values} {condition}"
+        query = f"UPDATE {self.table} SET {set_values} {self.prepare_condition(condition)}"
 
         print(query)
 
@@ -105,9 +151,103 @@ class Users(object):
         query = f"DELETE FROM {self.table} {condition}"
         self.do_query(query)
 
-    def add(self, u_id):
+
+class Users(Table):
+    user_id = None
+    tg_id = None
+    join_date = None
+    table = 'public.users'
+
+    def create(self, tg_id):
         data = {
             "join_date": datetime.now(),
-            "tg_id": u_id
+            "tg_id": tg_id
         }
         self.insert_into(data)
+
+        self.get_user(tg_id=tg_id)
+
+    def get_user(self, user_id=None, tg_id=None):
+        if user_id:
+            condition = ('id', user_id)
+        elif tg_id:
+            condition = ('tg_id', tg_id)
+        try:
+            user = self.select(condition)[0]
+            self.user_id, self.join_date, self.tg_id = user
+            return user
+        except IndexError:
+            return list()
+
+
+class Sources(Table):
+    source_id = None
+    name = None
+    table = 'public.sources'
+    url = ''
+
+    """
+    CREATE TABLE public.subscription
+    (
+        id serial,
+        source_id serial,
+        user_id serial,
+        date date,
+        PRIMARY KEY (id)
+    );
+    
+    ALTER TABLE public.subscription
+        OWNER to postgres;
+    """
+
+    def create(self, name, url):
+        data = {
+            "name": name,
+            "url": url
+        }
+        self.insert_into(data)
+
+        self.get(url=url)
+
+    def get(self, source_id=None, url=None, name=None):
+        if source_id:
+            condition = ('id', source_id)
+        elif url:
+            condition = ('tg_id', url)
+        elif name:
+            condition = ('name', name)
+
+        try:
+            source = self.select(condition)[0]
+            self.source_id, self.name, self.url = source
+            return source
+        except IndexError:
+            return ()
+
+    def set_url(self, url, name=None):
+        if not self.id:
+            raise Exception("no source selected!")
+        condition = ('id', self.id)
+        data = {'url': url}
+        if name:
+            data.update({'name': name})
+        self.update(condition, data)
+
+
+class Subscription(Table):
+    sub_id = None
+    source_id = None
+    user_id = None
+    date = None
+
+    table = 'public.subscription'
+
+    def create(self, user_id, source_id):
+        data = {
+            "user_id": user_id,
+            "source_id": source_id,
+            "date": datetime.now()
+        }
+
+        self.insert_into(data)
+        self.get(url=url)
