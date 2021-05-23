@@ -1,10 +1,10 @@
 CREATE TABLE public.sources
 (
 	id serial,
-    name character(35),
-    url character(250),
-    PRIMARY KEY (id),
+    name text,
+    url text,
     context text,
+    PRIMARY KEY (id)
 
 );
 
