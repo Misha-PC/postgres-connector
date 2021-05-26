@@ -1,4 +1,4 @@
-from connector import Table
+from database.connector import Table
 from datetime import datetime
 
 

@@ -1,4 +1,4 @@
-from connector import Database
+from database.connector import Database
 from config import Configuration
 
 

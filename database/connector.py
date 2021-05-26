@@ -34,7 +34,7 @@ class Table(object):
         return " WHERE " + out[4:]
 
     def do_query(self, query, get_result=False):
-        # print("do query", query)
+        print("do query", query)
         cursor = self.connection.cursor()
         cursor.execute(query)
         self.connection.commit()
@@ -86,4 +86,3 @@ class Table(object):
     def delete(self, condition=None):
         query = f"DELETE FROM {self.table} {self.create_condition(condition)}"
         self.do_query(query)
-
