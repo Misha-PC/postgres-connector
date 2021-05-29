@@ -1,8 +1,8 @@
 from threading import Thread
-import handlers
+import bot.handlers
 
-from parser_thread import parser_thread
-from bot_thread import bot_thread
+from parse.parser_thread import parser_thread
+from bot.bot_thread import bot_thread
 
 if __name__ == "__main__":
     thread1 = Thread(target=parser_thread)

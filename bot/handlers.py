@@ -1,10 +1,11 @@
-from bot import bot
-from models import Users
-from models import Sources
-from models import Subscription
-from database import db
+from bot.bot import bot
+from database.models import Users
+from database.models import Sources
+from database.models import Subscription
+from database.db import db
 from config import Configuration
 from telebot import types
+
 
 @bot.message_handler(commands=['start'])
 def start_message(message):
@@ -17,18 +18,51 @@ def start_message(message):
 @bot.message_handler(commands=['add'])
 def add_source(message):
     if not str(message.chat.id) in Configuration.admins:
+        bot.send_message(message.chat.id, "это админская команда.")
         return
 
+    sp = message.text.split(',')
+    print(sp)
     try:
-        name, url = message.text.split()[1:]
+        name, url = sp
     except Exception as e:
         print(e)
         return
+
+    name = name[5:]
+
+    print("name:", name)
+    print("url:", url)
 
     source = Sources(db.get_connection())
     source.create(name, url)
 
     bot.send_message(message.chat.id, f"new sources ({name} - {url}) added success.")
+
+
+@bot.message_handler(commands=['rename'])
+def rename(message):
+    if not str(message.chat.id) in Configuration.admins:
+        bot.send_message(message.chat.id, "это админская команда.")
+        return
+
+    sp = message.text.split(',')
+    print(sp)
+    try:
+        id_, name = sp
+    except Exception as e:
+        print(e)
+        return
+
+    id_ = int(id_.split()[1])
+
+    print("id:", id_)
+    print("name:", name)
+
+    source = Sources(db.get_connection())
+    source.update({"id": id_}, {"name": name})
+
+    # bot.send_message(message.chat.id, f"new sources ({name} - {url}) added success.")
 
 
 @bot.message_handler(commands=['getSources'])
@@ -38,8 +72,8 @@ def get_source(message):
 
     callback = ''
     source = Sources(db.get_connection())
-    all_sorces = source.get_all()
-    for source_name in all_sorces:
+    all_sources = source.get_all()
+    for source_name in all_sources:
         callback += f"{source_name[0]}) {source_name[1]}\n"
 
     bot.send_message(message.chat.id, callback)
@@ -139,6 +173,7 @@ def callback_worker(call):
             return
 
         bot.send_message(tg_id, f'Подписка на "{source.name}" оформлена.')
+        bot.send_message(tg_id, source.context)
 
     def del_sub(tg_id, source_id):
         user = Users(db.get_connection())
@@ -169,7 +204,6 @@ def callback_worker(call):
     }
 
     handler_list[code](call.message.chat.id, value)
-
 
     print(call.data)
     # bot.clear_step_handler(call.message)
